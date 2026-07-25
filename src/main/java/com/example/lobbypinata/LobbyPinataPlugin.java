@@ -11,8 +11,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Llama;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -24,7 +24,7 @@ import java.util.Random;
 
 public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Listener {
 
-    private Llama pinataEntity;
+    private Zombie pinataEntity;
     private ArmorStand nameTag;
     private final int maxHits = 50;
     private int currentHits = 50;
@@ -79,17 +79,22 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         currentHits = maxHits;
         isSpawned = true;
 
-        // יצירת הלאמה בדיוק במרכז
-        pinataEntity = (Llama) loc.getWorld().spawnEntity(loc, EntityType.LLAMA);
+        // יצירת מפלצת פיזית שלא תעלם על ידי שום פלאגן
+        pinataEntity = (Zombie) loc.getWorld().spawnEntity(loc, EntityType.ZOMBIE);
         pinataEntity.setCustomNameVisible(false);
         pinataEntity.setAI(false);
+        pinataEntity.setBaby(false);
+        pinataEntity.setSilent(true);
         pinataEntity.setInvulnerable(false);
         pinataEntity.setPersistent(true);
-        pinataEntity.setRemoveWhenFarAway(false);
-        pinataEntity.setColor(Llama.Color.CREAMY);
+        
+        // הלבשת קסדה כדי שזומבי לא יישרף בשמש
+        if (pinataEntity.getEquipment() != null) {
+            pinataEntity.getEquipment().setHelmet(new ItemStack(Material.GOLDEN_HELMET));
+        }
 
-        // הולוגרמה מעל הלאמה
-        Location hologramLoc = loc.clone().add(0, 1.8, 0);
+        // יצירת הולוגרמה צפה מעל הפיניאטה
+        Location hologramLoc = loc.clone().add(0, 2.2, 0);
         nameTag = (ArmorStand) loc.getWorld().spawnEntity(hologramLoc, EntityType.ARMOR_STAND);
         nameTag.setGravity(false);
         nameTag.setVisible(false);
