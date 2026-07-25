@@ -39,10 +39,10 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
     private int currentHits = 50;
     private boolean isSpawned = false;
 
-    // סוג הבלוק שנבחר
-    private Material pinataBlockType = Material.GOLD_BLOCK;
-    private final Material[] availableBlocks = {Material.GOLD_BLOCK, Material.DIAMOND_BLOCK, Material.NETHERITE_BLOCK, Material.SPONGE, Material.BEACON, Material.HAY_BLOCK};
-    private int blockTypeIndex = 0;
+    // הגדרות בלוק וגודל
+    private ItemStack customPinataBlock = new ItemStack(Material.GOLD_BLOCK);
+    private int pinataSize = 1; // 1 = 1x1, 2 = 2x2, 3 = 3x3
+    private final List<Location> spawnedBlocksLocations = new ArrayList<>();
 
     // רשימת הפרסים
     private final List<ItemStack> pinataRewards = new ArrayList<>();
@@ -61,7 +61,7 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         pinataRewards.add(new ItemStack(Material.EMERALD, 10));
 
         getLogger().info("========================================");
-        getLogger().info("LobbyPinata Advanced Block GUI Enabled!");
+        getLogger().info("LobbyPinata Custom Block & Size Plugin Enabled!");
         getLogger().info("Created by: BadPanda14");
         getLogger().info("========================================");
     }
@@ -84,7 +84,7 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
             if (args[0].equalsIgnoreCase("spawn")) {
                 Block targetBlock = player.getLocation().getBlock();
                 spawnPinata(targetBlock.getLocation());
-                player.sendMessage(ChatColor.GREEN + "🎉 בלוק הפיניאטה נוצר בהצלחה!");
+                player.sendMessage(ChatColor.GREEN + "🎉 פיניאטה בגודל " + pinataSize + "x" + pinataSize + " נוצרה בהצלחה!");
                 return true;
             }
 
@@ -104,7 +104,7 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         return true;
     }
 
-    // --- GUI ניהול מתקדם ---
+    // --- GUI ניהול ---
     private void openAdminGUI(Player player) {
         Inventory gui = Bukkit.createInventory(null, 54, GUI_TITLE);
 
@@ -121,26 +121,42 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         }
         gui.setItem(2, hitsItem);
 
-        // 2. כפתור בחירת מראה בלוק הפיניאטה
-        ItemStack blockItem = new ItemStack(pinataBlockType);
-        ItemMeta blockMeta = blockItem.getItemMeta();
+        // 2. משבצת לשים את הבלוק מהאינונטורי שלך!
+        ItemStack blockDisplay = customPinataBlock.clone();
+        ItemMeta blockMeta = blockDisplay.getItemMeta();
         if (blockMeta != null) {
-            blockMeta.setDisplayName(ChatColor.GOLD + "🧊 סוג/סגנון הבלוק: " + ChatColor.AQUA + pinataBlockType.name());
+            blockMeta.setDisplayName(ChatColor.GOLD + "🧊 הבלוק של הפיניאטה");
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.GRAY + "לחץ כדי להחליף את עיצוב הבלוק של הפיניאטה!");
+            lore.add(ChatColor.YELLOW + "גרור לכאן בלוק מהאינונטורי שלך!");
+            lore.add(ChatColor.GRAY + "הפיניאטה תיבנה מהבלוק הזה.");
             blockMeta.setLore(lore);
-            blockItem.setItemMeta(blockMeta);
+            blockDisplay.setItemMeta(blockMeta);
         }
-        gui.setItem(6, blockItem);
+        gui.setItem(4, blockDisplay);
 
-        // 3. כפתור הסבר על הפרסים והכמויות
+        // 3. כפתור שינוי גודל הפיניאטה (Size)
+        ItemStack sizeItem = new ItemStack(Material.OAK_LOG);
+        ItemMeta sizeMeta = sizeItem.getItemMeta();
+        if (sizeMeta != null) {
+            sizeMeta.setDisplayName(ChatColor.AQUA + "📐 גודל פיזי: " + ChatColor.YELLOW + pinataSize + "x" + pinataSize);
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + "לחץ כדי להחליף גודל:");
+            lore.add(ChatColor.GRAY + "• 1x1 (רגיל)");
+            lore.add(ChatColor.GRAY + "• 2x2 (בינוני)");
+            lore.add(ChatColor.GRAY + "• 3x3 (ענק)");
+            sizeMeta.setLore(lore);
+            sizeItem.setItemMeta(sizeMeta);
+        }
+        gui.setItem(6, sizeItem);
+
+        // 4. הסבר פרסים
         ItemStack infoItem = new ItemStack(Material.PAPER);
         ItemMeta infoMeta = infoItem.getItemMeta();
         if (infoMeta != null) {
-            infoMeta.setDisplayName(ChatColor.LIGHT_PURPLE + "📦 הגדרת חפצים וכמויות");
+            infoMeta.setDisplayName(ChatColor.LIGHT_PURPLE + "📦 הגדרת חפצים ופרסים");
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.YELLOW + "שים חפצים/קוסמטיקס במשבצות למטה.");
-            lore.add(ChatColor.GREEN + "כמות החפץ בבלוק (Amount) = כמה יצאו מהפיניאטה!");
+            lore.add(ChatColor.GREEN + "כמות החפץ (Amount) = כמה עפים מהפיניאטה!");
             infoMeta.setLore(lore);
             infoItem.setItemMeta(infoMeta);
         }
@@ -175,20 +191,16 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
             return;
         }
 
-        // שינוי סוג הבלוק
+        // שינוי גודל פיניאטה
         if (slot == 6) {
             event.setCancelled(true);
-            blockTypeIndex = (blockTypeIndex + 1) % availableBlocks.length;
-            pinataBlockType = availableBlocks[blockTypeIndex];
-            if (isSpawned && pinataLocation != null) {
-                pinataLocation.getBlock().setType(pinataBlockType);
-            }
+            pinataSize = (pinataSize % 3) + 1; // עובר בין 1, 2, 3
             openAdminGUI((Player) event.getWhoClicked());
             return;
         }
 
-        // נעילת השורה העליונה
-        if (slot < 18) {
+        // נעילת כפתורי ההסבר
+        if (slot == 0) {
             event.setCancelled(true);
         }
     }
@@ -197,15 +209,25 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
     public void onGUIClose(InventoryCloseEvent event) {
         if (!event.getView().getTitle().equals(GUI_TITLE)) return;
 
-        pinataRewards.clear();
         Inventory inv = event.getInventory();
+
+        // שמירת הבלוק שנבחר מ-slot 4
+        ItemStack placedBlock = inv.getItem(4);
+        if (placedBlock != null && placedBlock.getType().isBlock() && placedBlock.getType() != Material.AIR) {
+            customPinataBlock = placedBlock.clone();
+            customPinataBlock.setAmount(1);
+        }
+
+        // שמירת הפרסים
+        pinataRewards.clear();
         for (int i = 18; i < 54; i++) {
             ItemStack item = inv.getItem(i);
             if (item != null && item.getType() != Material.AIR) {
                 pinataRewards.add(item.clone());
             }
         }
-        event.getPlayer().sendMessage(ChatColor.GREEN + "✅ הגדרות הפיניאטה, העיצוב והכמויות נשמרו!");
+
+        event.getPlayer().sendMessage(ChatColor.GREEN + "✅ הבלוק, הגודל (x" + pinataSize + ") והפרסים נשמרו בהצלחה!");
     }
 
     // --- מנגנון הפיניאטה ---
@@ -216,9 +238,23 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         currentHits = maxHits;
         isSpawned = true;
 
-        pinataLocation.getBlock().setType(pinataBlockType);
+        Material blockType = customPinataBlock.getType();
 
-        Location hologramLoc = pinataLocation.clone().add(0.5, 1.2, 0.5);
+        // יצירת מראה פיזי לפי הגודל שנבחר (1x1, 2x2, 3x3)
+        spawnedBlocksLocations.clear();
+        for (int x = 0; x < pinataSize; x++) {
+            for (int y = 0; y < pinataSize; y++) {
+                for (int z = 0; z < pinataSize; z++) {
+                    Location bLoc = pinataLocation.clone().add(x, y, z);
+                    bLoc.getBlock().setType(blockType);
+                    spawnedBlocksLocations.add(bLoc);
+                }
+            }
+        }
+
+        // מיקום ההולוגרמה מעל מרכז הפיניאטה
+        double offset = (double) pinataSize / 2.0;
+        Location hologramLoc = pinataLocation.clone().add(offset, pinataSize + 0.5, offset);
         nameTag = (ArmorStand) loc.getWorld().spawnEntity(hologramLoc, EntityType.ARMOR_STAND);
         nameTag.setGravity(false);
         nameTag.setVisible(false);
@@ -254,16 +290,17 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
 
     @EventHandler
     public void onBlockHit(PlayerInteractEvent event) {
-        if (!isSpawned || pinataLocation == null) return;
+        if (!isSpawned || spawnedBlocksLocations.isEmpty()) return;
 
-        if (event.getClickedBlock() != null && event.getClickedBlock().getLocation().equals(pinataLocation)) {
+        Block clicked = event.getClickedBlock();
+        if (clicked != null && spawnedBlocksLocations.contains(clicked.getLocation())) {
             if (event.getAction() == Action.LEFT_CLICK_BLOCK || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 event.setCancelled(true);
 
                 currentHits--;
 
                 Player player = event.getPlayer();
-                Location loc = pinataLocation.clone().add(0.5, 1.0, 0.5);
+                Location loc = clicked.getLocation().add(0.5, 0.5, 0.5);
 
                 loc.getWorld().spawnParticle(Particle.FIREWORKS_SPARK, loc, 15, 0.3, 0.3, 0.3, 0.05);
                 loc.getWorld().playSound(loc, Sound.ENTITY_ITEM_BREAK, 1.0f, 1.2f);
@@ -279,29 +316,28 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
-        if (isSpawned && pinataLocation != null && event.getBlock().getLocation().equals(pinataLocation)) {
+        if (isSpawned && spawnedBlocksLocations.contains(event.getBlock().getLocation())) {
             event.setCancelled(true);
         }
     }
 
     private void breakPinata(Player lastHitPlayer) {
-        Location loc = pinataLocation.clone().add(0.5, 1.0, 0.5);
+        double offset = (double) pinataSize / 2.0;
+        Location loc = pinataLocation.clone().add(offset, pinataSize / 2.0, offset);
 
-        loc.getWorld().spawnParticle(Particle.EXPLOSION_HUGE, loc, 1);
-        loc.getWorld().spawnParticle(Particle.TOTEM, loc, 100, 0.5, 0.5, 0.5, 0.2);
+        loc.getWorld().spawnParticle(Particle.EXPLOSION_HUGE, loc, 2);
+        loc.getWorld().spawnParticle(Particle.TOTEM, loc, 120, 0.8, 0.8, 0.8, 0.2);
         loc.getWorld().playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
         Random random = new Random();
         if (!pinataRewards.isEmpty()) {
             for (ItemStack reward : pinataRewards) {
-                // פיזור כמות החפצים המדויקת שנקבעה ב-GUI לכל חפץ!
                 int amountToDrop = reward.getAmount();
                 for (int i = 0; i < amountToDrop; i++) {
                     ItemStack singleItem = reward.clone();
                     singleItem.setAmount(1);
                     Item droppedItem = loc.getWorld().dropItem(loc, singleItem);
 
-                    // זריקה ברדיוס של 10 בלוקים בקשת
                     double angle = random.nextDouble() * 2 * Math.PI;
                     double speed = 0.5 + random.nextDouble() * 0.8;
                     double x = Math.cos(angle) * speed;
@@ -323,10 +359,11 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
 
     private void removePinata() {
         isSpawned = false;
-        if (pinataLocation != null) {
-            pinataLocation.getBlock().setType(Material.AIR);
-            pinataLocation = null;
+        for (Location bLoc : spawnedBlocksLocations) {
+            bLoc.getBlock().setType(Material.AIR);
         }
+        spawnedBlocksLocations.clear();
+
         if (nameTag != null) {
             nameTag.remove();
             nameTag = null;
