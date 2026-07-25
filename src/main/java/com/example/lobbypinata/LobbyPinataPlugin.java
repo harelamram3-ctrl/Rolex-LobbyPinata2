@@ -6,17 +6,18 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -24,7 +25,7 @@ import java.util.Random;
 
 public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Listener {
 
-    private Zombie pinataEntity;
+    private Location pinataLocation;
     private ArmorStand nameTag;
     private final int maxHits = 50;
     private int currentHits = 50;
@@ -38,7 +39,7 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         getServer().getPluginManager().registerEvents(this, this);
 
         getLogger().info("========================================");
-        getLogger().info("LobbyPinata Plugin Enabled!");
+        getLogger().info("LobbyPinata Block-Plugin Enabled!");
         getLogger().info("Created by: BadPanda14");
         getLogger().info("========================================");
     }
@@ -58,8 +59,10 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         }
 
         if (args.length > 0 && args[0].equalsIgnoreCase("spawn")) {
-            spawnPinata(player.getLocation());
-            player.sendMessage(ChatColor.GREEN + "🎉 הפיניאטה שוגרה בהצלחה במיקום שלך!");
+            // הופך את הבלוק שהשחקן עומד עליו לבלוק פיניאטה
+            Block targetBlock = player.getLocation().getBlock();
+            spawnPinata(targetBlock.getLocation());
+            player.sendMessage(ChatColor.GREEN + "🎉 בלוק הפיניאטה נוצר בהצלחה במיקום שלך!");
             return true;
         }
 
@@ -76,25 +79,15 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
     private void spawnPinata(Location loc) {
         removePinata();
 
+        pinataLocation = loc.getBlock().getLocation();
         currentHits = maxHits;
         isSpawned = true;
 
-        // יצירת מפלצת פיזית שלא תעלם על ידי שום פלאגן
-        pinataEntity = (Zombie) loc.getWorld().spawnEntity(loc, EntityType.ZOMBIE);
-        pinataEntity.setCustomNameVisible(false);
-        pinataEntity.setAI(false);
-        pinataEntity.setBaby(false);
-        pinataEntity.setSilent(true);
-        pinataEntity.setInvulnerable(false);
-        pinataEntity.setPersistent(true);
-        
-        // הלבשת קסדה כדי שזומבי לא יישרף בשמש
-        if (pinataEntity.getEquipment() != null) {
-            pinataEntity.getEquipment().setHelmet(new ItemStack(Material.GOLDEN_HELMET));
-        }
+        // שינוי הבלוק לבלוק פיניאטה מיוחד (למשל Gold Block)
+        pinataLocation.getBlock().setType(Material.GOLD_BLOCK);
 
-        // יצירת הולוגרמה צפה מעל הפיניאטה
-        Location hologramLoc = loc.clone().add(0, 2.2, 0);
+        // יצירת הולוגרמה מעל הבלוק
+        Location hologramLoc = pinataLocation.clone().add(0.5, 1.2, 0.5);
         nameTag = (ArmorStand) loc.getWorld().spawnEntity(hologramLoc, EntityType.ARMOR_STAND);
         nameTag.setGravity(false);
         nameTag.setVisible(false);
@@ -129,42 +122,49 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
     }
 
     @EventHandler
-    public void onPinataHit(EntityDamageByEntityEvent event) {
-        if (!isSpawned || pinataEntity == null) return;
+    public void onBlockHit(PlayerInteractEvent event) {
+        if (!isSpawned || pinataLocation == null) return;
 
-        if (event.getEntity().getUniqueId().equals(pinataEntity.getUniqueId())) {
-            event.setCancelled(true);
+        // בדיקה אם השחקן לחץ/הרביץ לבלוק הפיניאטה
+        if (event.getClickedBlock() != null && event.getClickedBlock().getLocation().equals(pinataLocation)) {
+            if (event.getAction() == Action.LEFT_CLICK_BLOCK || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                event.setCancelled(true);
 
-            if (event.getDamager() instanceof Player damager) {
                 currentHits--;
 
-                Location loc = pinataEntity.getLocation().add(0, 1, 0);
+                Player player = event.getPlayer();
+                Location loc = pinataLocation.clone().add(0.5, 1.0, 0.5);
+
+                // אפקטים וצלילים
                 loc.getWorld().spawnParticle(Particle.FIREWORKS_SPARK, loc, 15, 0.3, 0.3, 0.3, 0.05);
                 loc.getWorld().playSound(loc, Sound.ENTITY_ITEM_BREAK, 1.0f, 1.2f);
 
                 updateHologram();
 
                 if (currentHits <= 0) {
-                    breakPinata(damager);
+                    breakPinata(player);
                 }
             }
         }
     }
 
     @EventHandler
-    public void onPinataDamage(EntityDamageEvent event) {
-        if (isSpawned && pinataEntity != null && event.getEntity().getUniqueId().equals(pinataEntity.getUniqueId())) {
+    public void onBlockBreak(BlockBreakEvent event) {
+        // מניעת שבירת הבלוק באופן רגיל
+        if (isSpawned && pinataLocation != null && event.getBlock().getLocation().equals(pinataLocation)) {
             event.setCancelled(true);
         }
     }
 
     private void breakPinata(Player lastHitPlayer) {
-        Location loc = pinataEntity.getLocation().add(0, 1, 0);
+        Location loc = pinataLocation.clone().add(0.5, 1.0, 0.5);
 
+        // אפקטי פיצוץ
         loc.getWorld().spawnParticle(Particle.EXPLOSION_HUGE, loc, 1);
         loc.getWorld().spawnParticle(Particle.TOTEM, loc, 100, 0.5, 0.5, 0.5, 0.2);
         loc.getWorld().playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
+        // פיזור פרסים
         Random random = new Random();
         Material[] rewards = {Material.DIAMOND, Material.GOLD_INGOT, Material.IRON_INGOT, Material.EMERALD};
 
@@ -174,6 +174,7 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
             loc.getWorld().dropItem(loc, item);
         }
 
+        // הודעה בצ'אט
         Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "========================================");
         Bukkit.broadcastMessage(ChatColor.YELLOW + "🎉 " + ChatColor.BOLD + "פיניאטת הלובי נשברה על ידי " + ChatColor.GREEN + lastHitPlayer.getName() + ChatColor.YELLOW + "!");
         Bukkit.broadcastMessage(ChatColor.AQUA + "💎 הפרסים פוזרו ברחבי הלובי, קחו אותם מהר!");
@@ -184,9 +185,9 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
 
     private void removePinata() {
         isSpawned = false;
-        if (pinataEntity != null) {
-            pinataEntity.remove();
-            pinataEntity = null;
+        if (pinataLocation != null) {
+            pinataLocation.getBlock().setType(Material.AIR);
+            pinataLocation = null;
         }
         if (nameTag != null) {
             nameTag.remove();
