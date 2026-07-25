@@ -130,7 +130,7 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
                 currentHits--;
 
                 Location loc = pinataEntity.getLocation().add(0, 1, 0);
-                loc.getWorld().spawnParticle(Particle.FIREWORK_EXPLOSION, loc, 15, 0.3, 0.3, 0.3, 0.05);
+                loc.getWorld().spawnParticle(Particle.FIREWORKS_SPARK, loc, 15, 0.3, 0.3, 0.3, 0.05);
                 loc.getWorld().playSound(loc, Sound.ENTITY_ITEM_BREAK, 1.0f, 1.2f);
 
                 updateHologram();
@@ -152,8 +152,8 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
     private void breakPinata(Player lastHitPlayer) {
         Location loc = pinataEntity.getLocation().add(0, 1, 0);
 
-        loc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1);
-        loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 100, 0.5, 0.5, 0.5, 0.2);
+        loc.getWorld().spawnParticle(Particle.EXPLOSION_HUGE, loc, 1);
+        loc.getWorld().spawnParticle(Particle.TOTEM, loc, 100, 0.5, 0.5, 0.5, 0.2);
         loc.getWorld().playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
         Random random = new Random();
