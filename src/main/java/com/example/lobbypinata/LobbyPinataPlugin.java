@@ -79,13 +79,17 @@ public class LobbyPinataPlugin extends JavaPlugin implements CommandExecutor, Li
         currentHits = maxHits;
         isSpawned = true;
 
+        // יצירת הלאמה בדיוק במרכז
         pinataEntity = (Llama) loc.getWorld().spawnEntity(loc, EntityType.LLAMA);
         pinataEntity.setCustomNameVisible(false);
         pinataEntity.setAI(false);
         pinataEntity.setInvulnerable(false);
+        pinataEntity.setPersistent(true);
+        pinataEntity.setRemoveWhenFarAway(false);
         pinataEntity.setColor(Llama.Color.CREAMY);
 
-        Location hologramLoc = loc.clone().add(0, 2.2, 0);
+        // הולוגרמה מעל הלאמה
+        Location hologramLoc = loc.clone().add(0, 1.8, 0);
         nameTag = (ArmorStand) loc.getWorld().spawnEntity(hologramLoc, EntityType.ARMOR_STAND);
         nameTag.setGravity(false);
         nameTag.setVisible(false);
